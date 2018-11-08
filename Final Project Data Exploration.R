@@ -87,22 +87,109 @@ total_407 <- total[which(total$Measure.Code == '407'),]
 total_405 <- total[which(total$Measure.Code == '405'),]
 total_551 <- total_five_star[which(total_five_star$Measure.Code == '551'),]
 
-
-
-# Test linear regression models for each outcome
-reg_430 = lm(Four.Quarter.Average.Score ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.Total.Nurse.Staffing.Hours.per.Resident.per.Day + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_430)
-summary(reg_430)
-
-# Plot distribution of outcome variable
-hist(total_430$Four.Quarter.Average.Score)
-
-# Plot predictor variables vs outcome variable
-plot(Four.Quarter.Average.Score ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.Total.Nurse.Staffing.Hours.per.Resident.per.Day + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_430, ask=T)
+names(total)
 
 
 
-names(total_five_star)
-reg_551 = lm(Adjusted.Score ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.Total.Nurse.Staffing.Hours.per.Resident.per.Day + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_551)
-summary(reg_551)
+## Visualizations
 
-hist(total_551$Adjusted.Score)
+library(tidyverse)
+
+# Average measure by State
+
+### Long Stay
+# 410
+total_410 <- total[which(total$Measure.Code == '410'),]
+total_410 <- na.omit(total_410)
+
+ggplot(total_410, aes(x=reorder(Provider.State.x, -Four.Quarter.Average.Score), y = Four.Quarter.Average.Score)) + 
+  stat_summary(fun.y="mean", geom="bar", fill = "steelblue") + 
+  xlab("Provider State") +
+  ylab("Average Measure Score") + 
+  ggtitle('Average Percentage of long-stay residents experiencing one or more falls with major injury') +
+  theme_minimal() 
+
+# 402
+total_402 <- total[which(total$Measure.Code == '402'),]
+total_402 <- na.omit(total_402)
+
+ggplot(total_402, aes(x=reorder(Provider.State.x, -Four.Quarter.Average.Score), y = Four.Quarter.Average.Score)) + 
+  stat_summary(fun.y="mean", geom="bar", fill = "steelblue") + 
+  xlab("Provider State") +
+  ylab("Average Measure Score") + 
+  ggtitle('Average Percentage of long-stay residents who self-report moderate to severe pain') +
+  theme_minimal() 
+
+# 551
+total_551 <- total_five_star[which(total_five_star$Measure.Code == '551'),]
+total_551 <- na.omit(total_551)
+
+ggplot(total_551, aes(x=reorder(Provider.State.x, -Adjusted.Score), y = Adjusted.Score)) + 
+  stat_summary(fun.y="mean", geom="bar", fill = "steelblue") + 
+  xlab("Provider State") +
+  ylab("Average Measure Score") + 
+  ggtitle('Average Number of hospitalizations per 1000 long-stay resident days') +
+  theme_minimal()
+
+
+
+### Short Stay
+# 424
+total_424 <- total[which(total$Measure.Code == '425'),]
+total_424 <- na.omit(total_425)
+
+ggplot(total_424, aes(x=reorder(Provider.State.x, -Four.Quarter.Average.Score), y = Four.Quarter.Average.Score)) + 
+  stat_summary(fun.y="mean", geom="bar", fill = "steelblue") + 
+  xlab("Provider State") +
+  ylab("Average Measure Score") + 
+  ggtitle('Average Percentage of short-stay residents who self-report moderate to severe pain') +
+  theme_minimal() 
+
+# 523
+total_523 <- total_five_star[which(total_five_star$Measure.Code == '523'),]
+total_523 <- na.omit(total_523)
+
+ggplot(total_523, aes(x=reorder(Provider.State.x, -Adjusted.Score), y = Adjusted.Score)) + 
+  stat_summary(fun.y="mean", geom="bar", fill = "steelblue") + 
+  xlab("Provider State") +
+  ylab("Average Measure Score") + 
+  ggtitle('Average Percentage of short-stay residents who were successfully discharged to the community') +
+  theme_minimal() 
+
+#521
+total_521 <- total_five_star[which(total_five_star$Measure.Code == '521'),]
+total_521<- na.omit(total_521)
+
+ggplot(total_521, aes(x=reorder(Provider.State.x, -Adjusted.Score), y = Adjusted.Score)) + 
+  stat_summary(fun.y="mean", geom="bar", fill = "steelblue") + 
+  xlab("Provider State") +
+  ylab("Average Measure Score") + 
+  ggtitle('Average Percentage of short-stay residents who were rehospitalized after a nursing home admission') +
+  theme_minimal() 
+
+
+# Model Outputs
+
+linear_reg <- data.frame("Measure Code" = c(410, 402, 551, 424, 523, 521), "Measure Description" = c('Percentage of long-stay residents experiencing one or more falls with major injury', 'Percentage of long-stay residents who self-report moderate to severe pain', 'Number of hospitalizations per 1000 long-stay resident days', 'Percentage of short-stay residents who self-report moderate to severe pain', 'Percentage of short-stay residents who were successfully discharged to the community', 'Percentage of short-stay residents who were rehospitalized after a nursing home admission'), "R-Squared" = c(0.02505, 0.06627, 0.07023, 0.05545, 0.05102, 0.01249))
+multinomial_reg 
+
+ggplot(linear_reg, aes(x = as.factor(Measure.Code), y = R.Squared)) + 
+  geom_bar(stat = 'identity', position = 'dodge') + 
+  xlab("Measure Description") + 
+  ylab("R-Squared") + 
+  ggtitle("Linear Regression Performance across Measures") + 
+  theme(axis.text.x = element_text(face="bold", color="#993333",angle=45)) +
+  theme_minimal()
+
+
+logistic_reg <- data.frame("Measure Code" = c(410, 402, 551, 424, 523, 521), "Measure Description" = c('Percentage of long-stay residents experiencing one or more falls with major injury', 'Percentage of long-stay residents who self-report moderate to severe pain', 'Number of hospitalizations per 1000 long-stay resident days', 'Percentage of short-stay residents who self-report moderate to severe pain', 'Percentage of short-stay residents who were successfully discharged to the community', 'Percentage of short-stay residents who were rehospitalized after a nursing home admission'), "AUC" = c(0.5932, 0.615, 0.6271, 0.6058, 0.6424, 0.5479))
+
+ggplot(logistic_reg, aes(x = as.factor(Measure.Code), y = AUC)) + 
+  geom_bar(stat = 'identity', position = 'dodge') + 
+  xlab("Measure Description") + 
+  ylab("AUC") + 
+  ggtitle("Logistic Regression Performance across Measures") + 
+  theme(axis.text.x = element_text(face="bold", color="#993333",angle=45)) +
+  theme_minimal()
+
+       
