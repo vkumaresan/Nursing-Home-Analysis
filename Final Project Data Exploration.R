@@ -184,12 +184,13 @@ ggplot(linear_reg, aes(x = as.factor(Measure.Code), y = R.Squared)) +
 
 logistic_reg <- data.frame("Measure Code" = c(410, 402, 551, 424, 523, 521), "Measure Description" = c('Percentage of long-stay residents experiencing one or more falls with major injury', 'Percentage of long-stay residents who self-report moderate to severe pain', 'Number of hospitalizations per 1000 long-stay resident days', 'Percentage of short-stay residents who self-report moderate to severe pain', 'Percentage of short-stay residents who were successfully discharged to the community', 'Percentage of short-stay residents who were rehospitalized after a nursing home admission'), "AUC" = c(0.5932, 0.615, 0.6271, 0.6058, 0.6424, 0.5479))
 
-ggplot(logistic_reg, aes(x = as.factor(Measure.Code), y = AUC)) + 
-  geom_bar(stat = 'identity', position = 'dodge') + 
+ggplot(logistic_reg, aes(x = reorder(as.factor(Measure.Description), AUC), y = AUC)) + 
+  geom_bar(stat = 'identity', position = 'dodge',fill = "steelblue") + 
   xlab("Measure Description") + 
   ylab("AUC") + 
   ggtitle("Logistic Regression Performance across Measures") + 
   theme(axis.text.x = element_text(face="bold", color="#993333",angle=45)) +
-  theme_minimal()
+  theme_minimal() +
+  coord_flip()
 
        
