@@ -29,7 +29,7 @@ total_410 <- na.omit(total_410)
 mean(total_410$Four.Quarter.Average.Score)
 total_410$AdjScoreFlag <- 0
 
-total_410$AdjScoreFlag[total_410$Four.Quarter.Average.Score > (mean(total_410$Four.Quarter.Average.Score))] <- 1
+total_410$AdjScoreFlag[total_410$Four.Quarter.Average.Score < (mean(total_410$Four.Quarter.Average.Score))] <- 1
 logreg_410 = glm(AdjScoreFlag ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, family = binomial, data= total_410)
 summary(logreg_410)
 
