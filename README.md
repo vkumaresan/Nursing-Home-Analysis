@@ -61,11 +61,11 @@ Broadly speaking, increased staffing can help to improve short-stay measures, wh
 All additional materials and code are published on Github, including documentation and datasets (https://github.com/vkumaresan/Nursing-Home-Analysis). 
 
 ## References
-Castle, Nicholas G and Jamie C Ferguson. “What is nursing home quality and how is it measured?” Gerontologist vol. 50,4 (2010): 426-42. 
+1. Castle, Nicholas G and Jamie C Ferguson. “What is nursing home quality and how is it measured?” Gerontologist vol. 50,4 (2010): 426-42. 
 
-Saliba, Debra et al. “Examination of the New Short-Stay Nursing Home Quality Measures: Rehospitalizations, Emergency Department Visits, and Successful Returns to the Community” Inquiry : a journal of medical care organization, provision and financing vol. 55 (2018): 46958018786816. 
+2. Saliba, Debra et al. “Examination of the New Short-Stay Nursing Home Quality Measures: Rehospitalizations, Emergency Department Visits, and Successful Returns to the Community” Inquiry : a journal of medical care organization, provision and financing vol. 55 (2018): 46958018786816. 
 
-Goodwin, James S et al. “Comparison of methods to identify long term care nursing home residence with administrative data” BMC health services research vol. 17,1 376. 30 May. 2017, doi:10.1186/s12913-017-2318-9
+3. Goodwin, James S et al. “Comparison of methods to identify long term care nursing home residence with administrative data” BMC health services research vol. 17,1 376. 30 May. 2017, doi:10.1186/s12913-017-2318-9
 
 ## Acknowledgements
 Social Science Research Institute, Duke University
