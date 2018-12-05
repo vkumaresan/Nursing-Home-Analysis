@@ -69,7 +69,9 @@ All additional materials and code are published on Github, including documentati
 
 ## Acknowledgements
 Social Science Research Institute, Duke University
+
 Master in Interdisciplinary Data Science Program, Duke University
+
 Dr. Jerry Reiter, Duke University
 
 
