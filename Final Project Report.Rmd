@@ -1,0 +1,1043 @@
+---
+title: 'Modeling Predictors of Quality in Healthcare Delivery Across Nursing Homes in the United States'
+author: "Viggy Kumaresan"
+date: "12/6/2018"
+output:
+  html_document:
+    df_print: paged
+    css: markdown_2.css
+  pdf_document:
+    latex_engine: xelatex
+    fig_height: 15
+    fig_width: 15
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE)
+opts_chunk$set(tidy.opts=list(width.cutoff=50),tidy=TRUE)
+```
+# Data Exploration
+```{r echo=FALSE}
+library(arm)
+library(nnet)
+library(tidyverse)
+library(pROC)
+library(caret)
+```
+
+### Outcome data: Long and short stay quality measures from MDS
+```{r}
+quality <- read.csv('MDS_Quality_Measures.csv')
+head(quality)
+```
+
+### New additional measures for Medicare Five-Star Rating system (additional potential outcome data)
+```{r}
+five_star <- read.csv('Medicare_Claims_Quality_Measures.csv')
+head(five_star)
+```
+
+### Predictor data: Nursing Home information
+```{r}
+provider <- read.csv('Provider_Info.csv')
+head(provider)
+```
+
+
+## Merge datasets on Federal Provider number
+
+### merge outcome and predictor data into one total dataframe
+```{r}
+total <- merge(quality, provider, by = 'Federal.Provider.Number')
+length(unique(total$Federal.Provider.Number)) #15,613
+```
+
+### merge five-star data and predictor data into one total dataframe
+```{r}
+total_five_star <- merge(five_star, provider, by = 'Federal.Provider.Number')
+length(unique(total_five_star$Federal.Provider.Number)) #15,613
+```
+
+### Look at quality measures provided in our datasets
+```{r}
+table(total$Measure.Description) # MDS
+table(total_five_star$Measure.Description) # Five Star
+```
+
+## Provider dataset exploration
+```{r, echo= FALSE}
+colnames(provider)
+str(provider)
+```
+
+###Factor variables
+```{r}
+table(provider$Ownership.Type)
+table(provider$Provider.Type)
+table(provider$Continuing.Care.Retirement.Community)
+table(provider$With.a.Resident.and.Family.Council)
+table(provider$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process)
+table(provider$Largest.Number.of.Residents.Affected.by.Deficiency.Cited.Under.New.Process)
+```
+
+### Adjust types of other predictor variables
+```{r, echo=FALSE}
+str(total)
+total$Number.of.Health.Deficiencies.on.Survey.Under.New.Process <- as.numeric(total$Number.of.Health.Deficiencies.on.Survey.Under.New.Process)
+total_five_star$Number.of.Health.Deficiencies.on.Survey.Under.New.Process <- as.numeric(total_five_star$Number.of.Health.Deficiencies.on.Survey.Under.New.Process)
+```
+
+
+### Primary flag used to differentiate long and short term stay measures: Resident Type
+```{r}
+table(total$Resident.type)
+```
+
+
+## Create sub-data frames for each outcome measure
+### Short Stay measures
+```{r}
+total_430 <- total[which(total$Measure.Code == '430'),]
+total_471 <- total[which(total$Measure.Code == '471'),]
+total_434 <- total[which(total$Measure.Code == '434'),]
+total_424 <- total[which(total$Measure.Code == '424'),]
+total_426 <- total[which(total$Measure.Code == '426'),]
+total_425 <- total[which(total$Measure.Code == '426'),]
+total_521 <- total_five_star[which(total_five_star$Measure.Code == '521'),]
+total_522 <- total_five_star[which(total_five_star$Measure.Code == '522'),]
+total_523 <- total_five_star[which(total_five_star$Measure.Code == '523'),]
+```
+
+
+### Long Stay measures
+```{r}
+total_403 <- total[which(total$Measure.Code == '403'),]
+total_415 <- total[which(total$Measure.Code == '415'),]
+total_411 <- total[which(total$Measure.Code == '411'),]
+total_410 <- total[which(total$Measure.Code == '410'),]
+total_408 <- total[which(total$Measure.Code == '408'),]
+total_404 <- total[which(total$Measure.Code == '404'),]
+total_452 <- total[which(total$Measure.Code == '452'),]
+total_419 <- total[which(total$Measure.Code == '419'),]
+total_402 <- total[which(total$Measure.Code == '402'),]
+total_409 <- total[which(total$Measure.Code == '409'),]
+total_451 <- total[which(total$Measure.Code == '451'),]
+total_401 <- total[which(total$Measure.Code == '401'),]
+total_406 <- total[which(total$Measure.Code == '406'),]
+total_407 <- total[which(total$Measure.Code == '407'),]
+total_405 <- total[which(total$Measure.Code == '405'),]
+total_551 <- total_five_star[which(total_five_star$Measure.Code == '551'),]
+```
+
+# Modeling
+## Focus on 3 Long Stay measures and 3 Short Stay measures
+
+## Long Stay
+### 410: Percentage of long-stay residents experiencing one or more falls with major injury 
+
+### Run Linear Regression
+```{r}
+total_410 <- total[which(total$Measure.Code == '410'),]
+
+reg_410 = lm(Four.Quarter.Average.Score ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_410)
+summary(reg_410)
+```
+
+
+### Log Transformed
+```{r}
+total_410 <- total_410[which(total_410$Four.Quarter.Average.Score != 0),]
+reg_410 = lm(log(Four.Quarter.Average.Score) ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_410)
+summary(reg_410)
+```
+
+
+### Convert outcome to binary outcome for logistic regression
+### 1: Less than pop average, 0 otherwise
+```{r}
+total_410 <- total[which(total$Measure.Code == '410'),]
+total_410 <- na.omit(total_410)
+
+mean(total_410$Four.Quarter.Average.Score)
+total_410$AdjScoreFlag <- 0
+total_410$AdjScoreFlag[total_410$Four.Quarter.Average.Score < (mean(total_410$Four.Quarter.Average.Score))] <- 1
+```
+
+### Run Logistic Regression
+```{r}
+logreg_410 = glm(AdjScoreFlag ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, family = binomial, data= total_410)
+summary(logreg_410)
+predprobs = predict(logreg_410, type = "response")
+rawresids = total_410$AdjScoreFlag - predprobs
+```
+
+### Check residuals
+```{r}
+par(mfcol = c(1,1))
+binnedplot(x= predprobs, y= rawresids, xlab = "Predicted Probabilities")
+binnedplot(x= total_410$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, y= rawresids, xlab = "Predicted Probabilities")
+```
+
+# Confusion Matrix and ROC Curve
+```{r}
+threshold = 0.5
+table(total_410$AdjScoreFlag, logreg_410$fitted > threshold)
+
+library("pROC")
+roc(total_410$AdjScoreFlag, fitted(logreg_410), plot=T, legacy.axes=T) 
+```
+
+
+## Scorecard (Multinomial Logistic)
+### 1: A = Top 25%, 2: B = 25-50%, 3: C = 50-75%, 4: F = < 75%
+### quantile in R uses median
+
+### Transform outcome variable 
+```{r}
+total_410 <- total[which(total$Measure.Code == '410'),]
+total_410 <- na.omit(total_410)
+
+total_410$AdjScoreGrade <- 0
+
+total_410$AdjScoreGrade[total_410$Four.Quarter.Average.Score >= (quantile(total_410$Four.Quarter.Average.Score, .75))] <- 1
+total_410$AdjScoreGrade[total_410$Four.Quarter.Average.Score >= (quantile(total_410$Four.Quarter.Average.Score, .50)) & total_410$Four.Quarter.Average.Score < (quantile(total_410$Four.Quarter.Average.Score, .75)) ] <- 2
+total_410$AdjScoreGrade[total_410$Four.Quarter.Average.Score >= (quantile(total_410$Four.Quarter.Average.Score, .25)) & total_410$Four.Quarter.Average.Score < (quantile(total_410$Four.Quarter.Average.Score, .50)) ] <- 3
+total_410$AdjScoreGrade[total_410$Four.Quarter.Average.Score < (quantile(total_410$Four.Quarter.Average.Score, .25))] <- 4
+```
+
+### Run Multinomial Logistic Regression
+```{r}
+library(nnet)
+multinomlogreg_410 = multinom(AdjScoreGrade ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_410)
+predprobs = fitted(multinomlogreg_410) 
+
+rawresid1 = (total_410$AdjScoreGrade == 1) -  predprobs[,1]
+rawresid2 = (total_410$AdjScoreGrade == 2) -  predprobs[,2]
+rawresid3 = (total_410$AdjScoreGrade == 3) -  predprobs[,3]
+rawresid4 = (total_410$AdjScoreGrade == 4) -  predprobs[,4]
+```
+
+### Average residuals of categorial predictors
+```{r}
+tapply(rawresid1, total_410$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid2, total_410$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid3, total_410$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid4, total_410$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+
+tapply(rawresid1, total_410$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid2, total_410$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid3, total_410$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid4, total_410$Provider.Changed.Ownership.in.Last.12.Months, mean)
+```
+
+### Binned plots for continuous variables
+```{r}
+par(mfcol = c(2,2))
+
+binnedplot(total_410$Total.Weighted.Health.Survey.Score, rawresid1, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_410$Total.Weighted.Health.Survey.Score, rawresid2, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_410$Total.Weighted.Health.Survey.Score, rawresid3, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_410$Total.Weighted.Health.Survey.Score, rawresid4, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+
+binnedplot(total_410$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid1, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_410$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid2, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_410$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid3, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_410$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid4, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+
+binnedplot(total_410$Number.of.Certified.Beds, rawresid1, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_410$Number.of.Certified.Beds, rawresid2, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_410$Number.of.Certified.Beds, rawresid3, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_410$Number.of.Certified.Beds, rawresid4, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+```
+
+
+### Variable Importance
+```{r}
+mostImportantVariables <- varImp(multinomlogreg_410)
+mostImportantVariables$Variables <- row.names(mostImportantVariables)
+mostImportantVariables <- mostImportantVariables[order(-mostImportantVariables$Overall),]
+print(head(mostImportantVariables))
+```
+
+
+### 402: Percentage of long-stay residents who self-report moderate to severe pain 
+
+### Run Linear Regression
+```{r}
+total_402 <- total[which(total$Measure.Code == '402'),]
+
+reg_402 = lm(Four.Quarter.Average.Score ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_402)
+summary(reg_402)
+```
+
+### Log Transformed
+```{r}
+total_402 <- total_402[which(total_402$Four.Quarter.Average.Score != 0),]
+reg_402 = lm(log(Four.Quarter.Average.Score) ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_402)
+summary(reg_402)
+```
+
+### Convert outcome to binary outcome for logistic regression
+### 1: Greater than pop average, 0 otherwise
+```{r}
+total_402 <- total[which(total$Measure.Code == '402'),]
+total_402 <- na.omit(total_402)
+
+mean(total_402$Four.Quarter.Average.Score)
+total_402$AdjScoreFlag <- 0
+
+total_402$AdjScoreFlag[total_402$Four.Quarter.Average.Score > (mean(total_402$Four.Quarter.Average.Score))] <- 1
+```
+
+### Run Logistic Regression
+```{r}
+logreg_402 = glm(AdjScoreFlag ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, family = binomial, data= total_402)
+summary(logreg_402)
+
+predprobs = predict(logreg_402, type = "response")
+rawresids = total_402$AdjScoreFlag - predprobs
+```
+
+
+### Check residuals
+```{r}
+par(mfcol = c(1,1))
+binnedplot(x= predprobs, y= rawresids, xlab = "Predicted Probabilities")
+binnedplot(x= total_402$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, y= rawresids, xlab = "Predicted Probabilities")
+```
+
+
+### Confusion Matrix and ROC Curve
+```{r}
+threshold = 0.5
+table(total_402$AdjScoreFlag, logreg_402$fitted > threshold)
+
+library("pROC")
+roc(total_402$AdjScoreFlag, fitted(logreg_402), plot=T, legacy.axes=T) 
+```
+
+
+### Scorecard (Multinomial Logistic)
+### 1: A = Top 25%, 2: B = 25-50%, 3: C = 50-75%, 4: F = < 75%
+
+### Transform outcome variable
+```{r}
+total_402 <- total[which(total$Measure.Code == '402'),]
+total_402 <- na.omit(total_402)
+
+total_402$AdjScoreGrade <- 0
+
+total_402$AdjScoreGrade[total_402$Four.Quarter.Average.Score >= (quantile(total_402$Four.Quarter.Average.Score, .75))] <- 1
+total_402$AdjScoreGrade[total_402$Four.Quarter.Average.Score >= (quantile(total_402$Four.Quarter.Average.Score, .50)) & total_402$Four.Quarter.Average.Score < (quantile(total_402$Four.Quarter.Average.Score, .75)) ] <- 2
+total_402$AdjScoreGrade[total_402$Four.Quarter.Average.Score >= (quantile(total_402$Four.Quarter.Average.Score, .25)) & total_402$Four.Quarter.Average.Score < (quantile(total_402$Four.Quarter.Average.Score, .50)) ] <- 3
+total_402$AdjScoreGrade[total_402$Four.Quarter.Average.Score < (quantile(total_402$Four.Quarter.Average.Score, .25))] <- 4
+```
+
+### Run Multinomial Logistic Regression
+```{r}
+library(nnet)
+multinomlogreg_402 = multinom(AdjScoreGrade ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_402)
+predprobs = fitted(multinomlogreg_402) 
+
+rawresid1 = (total_402$AdjScoreGrade == 1) -  predprobs[,1]
+rawresid2 = (total_402$AdjScoreGrade == 2) -  predprobs[,2]
+rawresid3 = (total_402$AdjScoreGrade == 3) -  predprobs[,3]
+rawresid4 = (total_402$AdjScoreGrade == 4) -  predprobs[,4]
+```
+
+
+### Average residuals of categorial predictors
+```{r}
+tapply(rawresid1, total_402$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid2, total_402$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid3, total_402$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid4, total_402$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+
+tapply(rawresid1, total_402$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid2, total_402$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid3, total_402$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid4, total_402$Provider.Changed.Ownership.in.Last.12.Months, mean)
+```
+
+### Binned plots for continuous variables
+```{r}
+par(mfcol = c(2,2))
+
+binnedplot(total_402$Total.Weighted.Health.Survey.Score, rawresid1, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_402$Total.Weighted.Health.Survey.Score, rawresid2, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_402$Total.Weighted.Health.Survey.Score, rawresid3, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_402$Total.Weighted.Health.Survey.Score, rawresid4, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+
+binnedplot(total_402$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid1, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_402$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid2, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_402$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid3, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_402$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid4, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+
+binnedplot(total_402$Number.of.Certified.Beds, rawresid1, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_402$Number.of.Certified.Beds, rawresid2, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_402$Number.of.Certified.Beds, rawresid3, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_402$Number.of.Certified.Beds, rawresid4, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+```
+
+### Variable Importance
+```{r}
+mostImportantVariables <- varImp(multinomlogreg_402)
+mostImportantVariables$Variables <- row.names(mostImportantVariables)
+mostImportantVariables <- mostImportantVariables[order(-mostImportantVariables$Overall),]
+print(head(mostImportantVariables))
+```
+
+
+### 551 (Five-Star Rating)
+
+### Run Linear Regression
+```{r}
+total_551 <- total_five_star[which(total_five_star$Measure.Code == '551'),]
+total_551 <- na.omit(total_551)
+
+names(total_five_star)
+reg_551 = lm(Adjusted.Score ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.Total.Nurse.Staffing.Hours.per.Resident.per.Day + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_551)
+summary(reg_551) 
+```
+
+
+### Log-Transformed
+```{r}
+total_551 <- total_551[which(total_551$Adjusted.Score != 0),]
+reg_551 = lm(log(Adjusted.Score) ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.Total.Nurse.Staffing.Hours.per.Resident.per.Day + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_551)
+summary(reg_551)
+```
+
+
+### Convert outcome to binary outcome for logistic regression
+### 1: Greater than pop average, 0 otherwise
+
+### Transform outcome variable
+```{r}
+total_551 <- total_five_star[which(total_five_star$Measure.Code == '551'),]
+total_551 <- na.omit(total_551)
+
+mean(total_551$Adjusted.Score)
+total_551$AdjScoreFlag <- 0
+
+total_551 <- na.omit(total_551)
+total_551$AdjScoreFlag[total_551$Adjusted.Score > (mean(total_551$Adjusted.Score))] <- 1
+```
+
+### Run Logistic Regression
+```{r}
+logreg_551 = glm(AdjScoreFlag ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, family = binomial, data= total_551)
+summary(logreg_551)
+
+predprobs = predict(logreg_551, type = "response")
+rawresids = total_551$AdjScoreFlag - predprobs
+```
+
+
+### Check residuals
+```{r}
+par(mfcol = c(1,1))
+binnedplot(x= predprobs, y= rawresids, xlab = "Predicted Probabilities")
+binnedplot(x= total_551$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, y= rawresids, xlab = "Predicted Probabilities")
+```
+
+### Confusion Matrix and ROC Curve
+```{r}
+threshold = 0.5
+table(total_551$AdjScoreFlag, logreg_551$fitted > threshold)
+
+library("pROC")
+roc(total_551$AdjScoreFlag, fitted(logreg_551), plot=T, legacy.axes=T) 
+```
+
+
+### Scorecard (Multinomial Logistic)
+### 1: A = Top 25%, 2: B = 25-50%, 3: C = 50-75%, 4: F = < 75%
+
+### Transform outcome variable
+```{r}
+total_551 <- total_five_star[which(total_five_star$Measure.Code == '551'),]
+total_551 <- na.omit(total_551)
+
+total_551$AdjScoreGrade <- 0
+
+total_551$AdjScoreGrade[total_551$Adjusted.Score >= (quantile(total_551$Adjusted.Score, .75))] <- 1
+total_551$AdjScoreGrade[total_551$Adjusted.Score >= (quantile(total_551$Adjusted.Score, .50)) & total_551$Adjusted.Score < (quantile(total_551$Adjusted.Score, .75)) ] <- 2
+total_551$AdjScoreGrade[total_551$Adjusted.Score >= (quantile(total_551$Adjusted.Score, .25)) & total_551$Adjusted.Score < (quantile(total_551$Adjusted.Score, .50)) ] <- 3
+total_551$AdjScoreGrade[total_551$Adjusted.Score < (quantile(total_551$Adjusted.Score, .25))] <- 4
+```
+
+### Run Multinomial Logistic Regression
+```{r}
+library(nnet)
+multinomlogreg_551 = multinom(AdjScoreGrade ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_551)
+predprobs = fitted(multinomlogreg_551) 
+
+rawresid1 = (total_551$AdjScoreGrade == 1) -  predprobs[,1]
+rawresid2 = (total_551$AdjScoreGrade == 2) -  predprobs[,2]
+rawresid3 = (total_551$AdjScoreGrade == 3) -  predprobs[,3]
+rawresid4 = (total_551$AdjScoreGrade == 4) -  predprobs[,4]
+```
+
+
+### Average residuals of categorial predictors
+```{r}
+tapply(rawresid1, total_551$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid2, total_551$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid3, total_551$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid4, total_551$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+
+tapply(rawresid1, total_551$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid2, total_551$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid3, total_551$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid4, total_551$Provider.Changed.Ownership.in.Last.12.Months, mean)
+```
+
+
+### Binned plots for continuous variables
+```{r}
+par(mfcol = c(2,2))
+
+binnedplot(total_551$Total.Weighted.Health.Survey.Score, rawresid1, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_551$Total.Weighted.Health.Survey.Score, rawresid2, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_551$Total.Weighted.Health.Survey.Score, rawresid3, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_551$Total.Weighted.Health.Survey.Score, rawresid4, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+
+binnedplot(total_551$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid1, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_551$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid2, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_551$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid3, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_551$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid4, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+
+binnedplot(total_551$Number.of.Certified.Beds, rawresid1, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_551$Number.of.Certified.Beds, rawresid2, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_551$Number.of.Certified.Beds, rawresid3, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_551$Number.of.Certified.Beds, rawresid4, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+```
+
+
+### Variable Importance
+```{r}
+mostImportantVariables <- varImp(multinomlogreg_551)
+mostImportantVariables$Variables <- row.names(mostImportantVariables)
+mostImportantVariables <- mostImportantVariables[order(-mostImportantVariables$Overall),]
+print(head(mostImportantVariables))
+```
+
+
+
+
+
+## Long Stay
+### 424: Percentage of short-stay residents who self-report moderate to severe pain 
+
+### Run Linear Regression
+```{r}
+total_424 <- total[which(total$Measure.Code == '424'),]
+reg_424 = lm(Four.Quarter.Average.Score ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds^2 + Number.of.Certified.Beds , data= total_424)
+summary(reg_424)
+```
+
+### Log-Transformed
+```{r}
+total_424 <- total_424[which(total_424$Four.Quarter.Average.Score != 0),]
+reg_424 = lm(log(Four.Quarter.Average.Score) ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.Total.Nurse.Staffing.Hours.per.Resident.per.Day + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_424)
+summary(reg_424)
+```
+
+
+### Convert outcome to binary outcome for logistic regression
+### 1: Greater than pop average, 0 otherwise
+
+### Transform outcome variable
+```{r}
+total_424 <- total[which(total$Measure.Code == '424'),]
+total_424 <- na.omit(total_424)
+
+mean(total_424$Four.Quarter.Average.Score)
+total_424$AdjScoreFlag <- 0
+
+total_424$AdjScoreFlag[total_424$Four.Quarter.Average.Score > (mean(total_424$Four.Quarter.Average.Score))] <- 1
+```
+
+### Run Logistic Regression
+```{r}
+logreg_424 = glm(AdjScoreFlag ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, family = binomial, data= total_424)
+summary(logreg_424)
+
+predprobs = predict(logreg_424, type = "response")
+rawresids = total_424$AdjScoreFlag - predprobs
+```
+
+### Check residuals
+```{r}
+par(mfcol = c(1,1))
+binnedplot(x= predprobs, y= rawresids, xlab = "Predicted Probabilities")
+binnedplot(x= total_424$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, y= rawresids, xlab = "Predicted Probabilities")
+```
+
+### Confusion Matrix and ROC Curve
+```{r}
+threshold = 0.5
+table(total_424$AdjScoreFlag, logreg_424$fitted > threshold)
+
+library("pROC")
+roc(total_424$AdjScoreFlag, fitted(logreg_424), plot=T, legacy.axes=T) 
+```
+
+### Scorecard (Multinomial Logistic)
+### 1: A = Top 25%, 2: B = 25-50%, 3: C = 50-75%, 4: F = < 75%
+
+### Transform outcome variable
+```{r}
+total_424 <- total[which(total$Measure.Code == '424'),]
+total_424 <- na.omit(total_424)
+
+total_424$AdjScoreGrade <- 0
+
+total_424$AdjScoreGrade[total_424$Four.Quarter.Average.Score >= (quantile(total_424$Four.Quarter.Average.Score, .75))] <- 1
+total_424$AdjScoreGrade[total_424$Four.Quarter.Average.Score >= (quantile(total_424$Four.Quarter.Average.Score, .50)) & total_424$Four.Quarter.Average.Score < (quantile(total_424$Four.Quarter.Average.Score, .75)) ] <- 2
+total_424$AdjScoreGrade[total_424$Four.Quarter.Average.Score >= (quantile(total_424$Four.Quarter.Average.Score, .25)) & total_424$Four.Quarter.Average.Score < (quantile(total_424$Four.Quarter.Average.Score, .50)) ] <- 3
+total_424$AdjScoreGrade[total_424$Four.Quarter.Average.Score < (quantile(total_424$Four.Quarter.Average.Score, .25))] <- 4
+```
+
+### Run Multinomial Logistic Regression
+```{r}
+library(nnet)
+multinomlogreg_424 = multinom(AdjScoreGrade ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_424)
+predprobs = fitted(multinomlogreg_424) 
+
+rawresid1 = (total_424$AdjScoreGrade == 1) -  predprobs[,1]
+rawresid2 = (total_424$AdjScoreGrade == 2) -  predprobs[,2]
+rawresid3 = (total_424$AdjScoreGrade == 3) -  predprobs[,3]
+rawresid4 = (total_424$AdjScoreGrade == 4) -  predprobs[,4]
+```
+
+
+### Average residuals of categorial predictors
+```{r}
+tapply(rawresid1, total_424$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid2, total_424$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid3, total_424$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid4, total_424$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+
+tapply(rawresid1, total_424$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid2, total_424$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid3, total_424$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid4, total_424$Provider.Changed.Ownership.in.Last.12.Months, mean)
+```
+
+
+### Binned plots for continuous variables
+```{r}
+par(mfcol = c(2,2))
+
+binnedplot(total_424$Total.Weighted.Health.Survey.Score, rawresid1, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_424$Total.Weighted.Health.Survey.Score, rawresid2, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_424$Total.Weighted.Health.Survey.Score, rawresid3, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_424$Total.Weighted.Health.Survey.Score, rawresid4, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+
+binnedplot(total_424$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid1, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_424$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid2, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_424$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid3, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_424$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid4, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+
+binnedplot(total_424$Number.of.Certified.Beds, rawresid1, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_424$Number.of.Certified.Beds, rawresid2, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_424$Number.of.Certified.Beds, rawresid3, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_424$Number.of.Certified.Beds, rawresid4, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+```
+
+
+### Variable Importance
+```{r}
+mostImportantVariables <- varImp(multinomlogreg_424)
+mostImportantVariables$Variables <- row.names(mostImportantVariables)
+mostImportantVariables <- mostImportantVariables[order(-mostImportantVariables$Overall),]
+print(head(mostImportantVariables))
+```
+
+
+### 523: Percentage of short-stay residents who were successfully discharged to the community (Five-Star Rating)
+
+
+### Run Linear Regression
+```{r}
+total_523 <- total_five_star[which(total_five_star$Measure.Code == '523'),]
+total_523 <- na.omit(total_523)
+reg_523 = lm(Adjusted.Score ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds^2 + Number.of.Certified.Beds , data= total_523)
+summary(reg_523) 
+```
+
+### Log-Transformed
+```{r}
+total_523 <- total_523[which(total_523$Adjusted.Score != 0),]
+reg_523 = lm(log(Adjusted.Score) ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.Total.Nurse.Staffing.Hours.per.Resident.per.Day + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_523)
+summary(reg_523)
+```
+
+
+### Convert outcome to binary outcome
+### 1: Greater than pop average, 0 otherwise
+
+### Transform outcome variable
+```{r}
+total_523 <- total_five_star[which(total_five_star$Measure.Code == '523'),]
+total_523 <- na.omit(total_523)
+
+mean(total_523$Adjusted.Score)
+total_523$AdjScoreFlag <- 0
+
+total_523$AdjScoreFlag[total_523$Adjusted.Score > (mean(total_523$Adjusted.Score))] <- 1
+```
+
+### Run Logistic Regression
+```{r}
+logreg_523 = glm(AdjScoreFlag ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, family = binomial, data= total_523)
+summary(logreg_523)
+
+predprobs = predict(logreg_523, type = "response")
+rawresids = total_523$AdjScoreFlag - predprobs
+```
+
+### Check residuals
+```{r}
+par(mfcol = c(1,1))
+binnedplot(x= predprobs, y= rawresids, xlab = "Predicted Probabilities")
+binnedplot(x= total_523$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, y= rawresids, xlab = "Predicted Probabilities")
+```
+
+
+### Confusion Matrix and ROC Curve
+```{r}
+threshold = 0.5
+table(total_523$AdjScoreFlag, logreg_523$fitted > threshold)
+
+library("pROC")
+roc(total_523$AdjScoreFlag, fitted(logreg_523), plot=T, legacy.axes=T) 
+```
+
+
+### Scorecard (Multinomial Logistic)
+### 1: A = Top 25%, 2: B = 25-50%, 3: C = 50-75%, 4: F = < 75%
+
+### Transform outcome variable
+```{r}
+total_523 <- total_five_star[which(total_five_star$Measure.Code == '523'),]
+total_523 <- na.omit(total_523)
+
+total_523$AdjScoreGrade <- 0
+
+total_523$AdjScoreGrade[total_523$Adjusted.Score >= (quantile(total_523$Adjusted.Score, .75))] <- 1
+total_523$AdjScoreGrade[total_523$Adjusted.Score >= (quantile(total_523$Adjusted.Score, .50)) & total_523$Adjusted.Score < (quantile(total_523$Adjusted.Score, .75)) ] <- 2
+total_523$AdjScoreGrade[total_523$Adjusted.Score >= (quantile(total_523$Adjusted.Score, .25)) & total_523$Adjusted.Score < (quantile(total_523$Adjusted.Score, .50)) ] <- 3
+total_523$AdjScoreGrade[total_523$Adjusted.Score < (quantile(total_523$Adjusted.Score, .25))] <- 4
+```
+
+### Run Multinomial Logistic Regression
+```{r}
+library(nnet)
+multinomlogreg_523 = multinom(AdjScoreGrade ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_523)
+predprobs = fitted(multinomlogreg_523) 
+
+rawresid1 = (total_523$AdjScoreGrade == 1) -  predprobs[,1]
+rawresid2 = (total_523$AdjScoreGrade == 2) -  predprobs[,2]
+rawresid3 = (total_523$AdjScoreGrade == 3) -  predprobs[,3]
+rawresid4 = (total_523$AdjScoreGrade == 4) -  predprobs[,4]
+```
+
+
+### Average residuals of categorial predictors
+```{r}
+tapply(rawresid1, total_523$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid2, total_523$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid3, total_523$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid4, total_523$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+
+tapply(rawresid1, total_523$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid2, total_523$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid3, total_523$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid4, total_523$Provider.Changed.Ownership.in.Last.12.Months, mean)
+```
+
+
+### Binned plots for continuous variables
+```{r}
+par(mfcol = c(2,2))
+
+binnedplot(total_523$Total.Weighted.Health.Survey.Score, rawresid1, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_523$Total.Weighted.Health.Survey.Score, rawresid2, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_523$Total.Weighted.Health.Survey.Score, rawresid3, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_523$Total.Weighted.Health.Survey.Score, rawresid4, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+
+binnedplot(total_523$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid1, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_523$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid2, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_523$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid3, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_523$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid4, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+
+binnedplot(total_523$Number.of.Certified.Beds, rawresid1, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_523$Number.of.Certified.Beds, rawresid2, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_523$Number.of.Certified.Beds, rawresid3, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_523$Number.of.Certified.Beds, rawresid4, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+```
+
+
+### Variable Importance
+```{r}
+mostImportantVariables <- varImp(multinomlogreg_523)
+mostImportantVariables$Variables <- row.names(mostImportantVariables)
+mostImportantVariables <- mostImportantVariables[order(-mostImportantVariables$Overall),]
+print(head(mostImportantVariables))
+```
+
+
+## 521: Percentage of short-stay residents who were rehospitalized after a nursing home admission 
+
+### Run Linear Regression
+```{r}
+total_521 <- total_five_star[which(total_five_star$Measure.Code == '521'),]
+total_521 <- na.omit(total_521)
+
+reg_521 = lm(Adjusted.Score ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds^2 + Number.of.Certified.Beds , data= total_521)
+summary(reg_521) 
+```
+
+### Log-Transformed
+```{r}
+total_521 <- total_521[which(total_521$Adjusted.Score != 0),]
+reg_521 = lm(log(Adjusted.Score) ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.Total.Nurse.Staffing.Hours.per.Resident.per.Day + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_521)
+summary(reg_521)
+```
+
+### Convert outcome to binary outcome
+### 1: Greater than pop average, 0 otherwise
+
+### Transform outcome variable
+```{r}
+total_521 <- total_five_star[which(total_five_star$Measure.Code == '521'),]
+total_521 <- na.omit(total_521)
+
+mean(total_521$Adjusted.Score)
+total_521$AdjScoreFlag <- 0
+
+total_521$AdjScoreFlag[total_521$Adjusted.Score > (mean(total_521$Adjusted.Score))] <- 1
+```
+
+
+### Run Logistic Regression
+```{r}
+logreg_521 = glm(AdjScoreFlag ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + Automatic.Sprinkler.Systems.in.All.Required.Areas + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, family = binomial, data= total_521)
+summary(logreg_521)
+
+
+predprobs = predict(logreg_521, type = "response")
+rawresids = total_521$AdjScoreFlag - predprobs
+```
+
+### Check residuals
+```{r}
+par(mfcol = c(1,1))
+binnedplot(x= predprobs, y= rawresids, xlab = "Predicted Probabilities")
+binnedplot(x= total_551$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, y= rawresids, xlab = "Predicted Probabilities")
+```
+
+### Confusion Matrix and ROC Curve
+```{r}
+threshold = 0.5
+table(total_521$AdjScoreFlag, logreg_521$fitted > threshold)
+
+library("pROC")
+roc(total_521$AdjScoreFlag, fitted(logreg_521), plot=T, legacy.axes=T) 
+```
+
+
+### Scorecard (multinomial logistic)
+### 1: A = Top 25%, 2: B = 25-50%, 3: C = 50-75%, 4: F = < 75%
+
+### Transform outcome variable
+```{r}
+total_521 <- total_five_star[which(total_five_star$Measure.Code == '521'),]
+total_521 <- na.omit(total_521)
+
+total_521$AdjScoreGrade <- 0
+
+total_521$AdjScoreGrade[total_521$Adjusted.Score >= (quantile(total_521$Adjusted.Score, .75))] <- 1
+total_521$AdjScoreGrade[total_521$Adjusted.Score >= (quantile(total_521$Adjusted.Score, .50)) & total_521$Adjusted.Score < (quantile(total_521$Adjusted.Score, .75)) ] <- 2
+total_521$AdjScoreGrade[total_521$Adjusted.Score >= (quantile(total_521$Adjusted.Score, .25)) & total_521$Adjusted.Score < (quantile(total_521$Adjusted.Score, .50)) ] <- 3
+total_521$AdjScoreGrade[total_521$Adjusted.Score < (quantile(total_521$Adjusted.Score, .25))] <- 4
+```
+
+
+# Run Multinomial Logistic Regression
+```{r}
+multinomlogreg_521 = multinom(AdjScoreGrade ~ Total.Weighted.Health.Survey.Score + Number.of.Health.Deficiencies.on.Previous.Standard.Health.Inspection + Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process + Number.of.Health.Deficiencies.on.Survey.Under.New.Process + Adjusted.RN.Staffing.Hours.per.Resident.per.Day + Adjusted.LPN.Staffing.Hours.per.Resident.per.Day + Adjusted.CNA.Staffing.Hours.per.Resident.per.Day + Health.Inspection.Rating + With.a.Resident.and.Family.Council + Provider.Changed.Ownership.in.Last.12.Months + Number.of.Certified.Beds, data= total_521)
+predprobs = fitted(multinomlogreg_521) 
+
+rawresid1 = (total_521$AdjScoreGrade == 1) -  predprobs[,1]
+rawresid2 = (total_521$AdjScoreGrade == 2) -  predprobs[,2]
+rawresid3 = (total_521$AdjScoreGrade == 3) -  predprobs[,3]
+rawresid4 = (total_521$AdjScoreGrade == 4) -  predprobs[,4]
+```
+
+
+### Average residuals of categorial predictors
+```{r}
+tapply(rawresid1, total_521$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid2, total_521$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid3, total_521$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+tapply(rawresid4, total_521$Severity.of.Most.Severe.Deficiency.Cited.Under.New.Process, mean)
+
+tapply(rawresid1, total_521$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid2, total_521$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid3, total_521$Provider.Changed.Ownership.in.Last.12.Months, mean)
+tapply(rawresid4, total_521$Provider.Changed.Ownership.in.Last.12.Months, mean)
+```
+
+### Binned plots for continuous variables
+```{r}
+par(mfcol = c(2,2))
+
+binnedplot(total_521$Total.Weighted.Health.Survey.Score, rawresid1, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_521$Total.Weighted.Health.Survey.Score, rawresid2, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_521$Total.Weighted.Health.Survey.Score, rawresid3, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_521$Total.Weighted.Health.Survey.Score, rawresid4, xlab = "Total Weighted Health Survey Score", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+
+binnedplot(total_521$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid1, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_521$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid2, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_521$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid3, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_521$Adjusted.RN.Staffing.Hours.per.Resident.per.Day, rawresid4, xlab = "Adjusted RN Staffing Hours per Resident per Day", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+
+binnedplot(total_521$Number.of.Certified.Beds, rawresid1, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = A")
+binnedplot(total_521$Number.of.Certified.Beds, rawresid2, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = B")
+binnedplot(total_521$Number.of.Certified.Beds, rawresid3, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = C")
+binnedplot(total_521$Number.of.Certified.Beds, rawresid4, xlab = "Number of Certified Beds", ylab = "Raw residuals", main = "Binned plot: Grade = D")
+```
+
+### Variable Importance
+```{r}
+mostImportantVariables <- varImp(multinomlogreg_521)
+mostImportantVariables$Variables <- row.names(mostImportantVariables)
+mostImportantVariables <- mostImportantVariables[order(-mostImportantVariables$Overall),]
+print(head(mostImportantVariables))
+```
+
+# Visualizations
+
+## Average measure by State
+
+### Long Stay
+### 410
+```{r, fig.width=10}
+total_410 <- total[which(total$Measure.Code == '410'),]
+total_410 <- na.omit(total_410)
+
+ggplot(total_410, aes(x=reorder(Provider.State.x, -Four.Quarter.Average.Score), y = Four.Quarter.Average.Score)) + 
+  stat_summary(fun.y="mean", geom="bar", fill = "steelblue") + 
+  xlab("Provider State") +
+  ylab("Average Measure Score") + 
+  ggtitle('Average percentage of long-stay residents experiencing one or more falls with major injury (risk-adjusted)') +
+  theme_minimal() 
+```
+
+
+### 402
+```{r, fig.width=10}
+total_402 <- total[which(total$Measure.Code == '402'),]
+total_402 <- na.omit(total_402)
+
+ggplot(total_402, aes(x=reorder(Provider.State.x, -Four.Quarter.Average.Score), y = Four.Quarter.Average.Score)) + 
+  stat_summary(fun.y="mean", geom="bar", fill = "steelblue") + 
+  xlab("Provider State") +
+  ylab("Average Measure Score") + 
+  ggtitle('Average Percentage of long-stay residents who self-report moderate to severe pain') +
+  theme_minimal() 
+```
+
+### 551
+```{r, fig.width=10}
+total_551 <- total_five_star[which(total_five_star$Measure.Code == '551'),]
+total_551 <- na.omit(total_551)
+
+ggplot(total_551, aes(x=reorder(Provider.State.x, -Adjusted.Score), y = Adjusted.Score)) + 
+  stat_summary(fun.y="mean", geom="bar", fill = "steelblue") + 
+  xlab("Provider State") +
+  ylab("Average Measure Score") + 
+  ggtitle('Average Number of hospitalizations per 1000 long-stay resident days') +
+  theme_minimal()
+```
+
+### Short Stay
+### 424
+```{r, fig.width=10}
+total_424 <- total[which(total$Measure.Code == '425'),]
+total_424 <- na.omit(total_425)
+
+ggplot(total_424, aes(x=reorder(Provider.State.x, -Four.Quarter.Average.Score), y = Four.Quarter.Average.Score)) + 
+  stat_summary(fun.y="mean", geom="bar", fill = "steelblue") + 
+  xlab("Provider State") +
+  ylab("Average Measure Score") + 
+  ggtitle('Average Percentage of short-stay residents who self-report moderate to severe pain') +
+  theme_minimal() 
+```
+
+### 523
+```{r, fig.width=10}
+total_523 <- total_five_star[which(total_five_star$Measure.Code == '523'),]
+total_523 <- na.omit(total_523)
+
+ggplot(total_523, aes(x=reorder(Provider.State.x, -Adjusted.Score), y = Adjusted.Score)) + 
+  stat_summary(fun.y="mean", geom="bar", fill = "steelblue") + 
+  xlab("Provider State") +
+  ylab("Average Measure Score") + 
+  ggtitle('Average percentage of short-stay residents who were successfully discharged to the community') +
+  theme_minimal() 
+```
+
+###521
+```{r, fig.width=10}
+total_521 <- total_five_star[which(total_five_star$Measure.Code == '521'),]
+total_521<- na.omit(total_521)
+
+ggplot(total_521, aes(x=reorder(Provider.State.x, -Adjusted.Score), y = Adjusted.Score)) + 
+  stat_summary(fun.y="mean", geom="bar", fill = "steelblue") + 
+  xlab("Provider State") +
+  ylab("Average Measure Score") + 
+  ggtitle('Average percentage of short-stay residents who were rehospitalized after a nursing home admission (risk-adjusted)') +
+  theme_minimal() 
+```
+
+
+## Model Outputs
+
+### Linear Regression
+```{r, fig.width=10}
+linear_reg <- data.frame("Measure Code" = c(410, 402, 551, 424, 523, 521), "Measure Description" = c('Percentage of long-stay residents experiencing one or more falls with major injury', 'Percentage of long-stay residents who self-report moderate to severe pain', 'Number of hospitalizations per 1000 long-stay resident days', 'Percentage of short-stay residents who self-report moderate to severe pain', 'Percentage of short-stay residents who were successfully discharged to the community', 'Percentage of short-stay residents who were rehospitalized after a nursing home admission'), "R-Squared" = c(0.02505, 0.06627, 0.07023, 0.05545, 0.05102, 0.01249), "Type" = c("Long Stay", "Long Stay", "Long Stay", "Short Stay", "Short Stay", "Short Stay"))
+
+
+ggplot(linear_reg, aes(x = reorder(as.factor(Measure.Description), R.Squared), y = R.Squared, fill = Type), color = Type) + 
+  geom_bar(stat = 'identity', position = 'dodge') + 
+  xlab("Measure Description") + 
+  ylab("R-Squared") + 
+  ggtitle("Linear Regression Performance across Measures") + 
+  theme(axis.text.x = element_text(face="bold", color="#993333",angle=45)) +
+  theme_minimal() + 
+  coord_flip()
+```
+
+### Logistic Regression
+```{r, fig.width=10}
+logistic_reg <- data.frame("Measure Code" = c(410, 402, 551, 424, 523, 521), "Measure Description" = c('Percentage of long-stay residents experiencing one or more falls with major injury', 'Percentage of long-stay residents who self-report moderate to severe pain', 'Number of hospitalizations per 1000 long-stay resident days', 'Percentage of short-stay residents who self-report moderate to severe pain', 'Percentage of short-stay residents who were successfully discharged to the community', 'Percentage of short-stay residents who were rehospitalized after a nursing home admission'), "AUC" = c(0.5932, 0.615, 0.6271, 0.6058, 0.6424, 0.5479), "Type" = c("Long Stay", "Long Stay", "Long Stay", "Short Stay", "Short Stay", "Short Stay"))
+
+ggplot(logistic_reg, aes(x = reorder(as.factor(Measure.Description), AUC), y = AUC, fill = Type), color = Type) + 
+  geom_bar(stat = 'identity', position = 'dodge') + 
+  xlab("Measure Description") + 
+  ylab("AUC") + 
+  ggtitle("Logistic Regression Performance across Measures") + 
+  theme(axis.text.x = element_text(face="bold", color="#993333",angle=45)) +
+  theme_minimal() +
+  coord_flip()
+```
+
+
+       
