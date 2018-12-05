@@ -1,4 +1,4 @@
-# Modeling-Final-Project
+# Modeling Predictors of Quality in Healthcare Delivery Across Nursing Homes in the United States
 Individual Final Project for IDS702 (Modeling and Representation of Data) course. 
 
 ## Introduction
