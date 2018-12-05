@@ -18,16 +18,16 @@ This project focused on 6 outcome measures defined by the CMS: 3 long-stay and 3
 These outcomes are listed below, along with their measure code:
 
 Long Stay 
-410: Percentage of long-stay residents experiencing one or more falls with major injury 
-402: Percentage of long-stay residents who self-report moderate to severe pain 
-551: Number of hospitalizations per 1000 long-stay resident days*   
+  * 410: Percentage of long-stay residents experiencing one or more falls with major injury 
+  * 402: Percentage of long-stay residents who self-report moderate to severe pain 
+  * 551: Number of hospitalizations per 1000 long-stay resident days**   
 
 Short Stay
-424: Percentage of short-stay residents who self-report moderate to severe pain 
-521: Percentage of short-stay residents who were rehospitalized after a nursing home admission* 
-523: Percentage of short-stay residents who were successfully discharged to the community*
+  * 424: Percentage of short-stay residents who self-report moderate to severe pain 
+  * 521: Percentage of short-stay residents who were rehospitalized after a nursing home admission** 
+  * 523: Percentage of short-stay residents who were successfully discharged to the community**
 
-* Five Star Quality Measures
+** Five Star Quality Measures
 
 ## Methodology
 
